@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Music Recommendation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(to bottom right, #f4d03f, #16a085);
+            color: #222;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        #searchContainer { text-align: center; margin: 20px; }
+        input, button {
+            padding: 10px; font-size: 16px; margin: 5px;
+            border-radius: 5px; border: none;
+        }
+        input { width: 250px; }
+        button {
+            background-color: #e67e22;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover { background-color: #d35400; }
+
+        #mood h1 {
+            text-align: left;
+            padding: 20px;
+            margin-left: 40px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        #mood div {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 40px;
+            height: 150px;
+            width: 150px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom right, #d4ac0d, #138d75);
+            color: white;
+            font-weight: bold;
+            font-size: 25px;
+            cursor: pointer;
+        }
+
+        #listOfSongs {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            justify-items: center;
+            padding: 10px;
+        }
+        .song-card {
+            height: 320px;
+            width: 240px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        .song-card:hover {
+            filter: brightness(1.05);
+            transform: scale(1.04);
+            border: 2px solid #fff176;
+        }
+        .song-card img {
+            width: 100%; height: 200px;
+            object-fit: cover; border-radius: 8px;
+        }
+        .song-card h3 { color: #2c3e50; margin: 10px 0 5px; font-weight: bold; }
+        .song-card p { color: #7f8c8d; font-size: 14px; }
+
+        #songModal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 25vw;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .modal-content img { width: 100%; border-radius: 8px; }
+        .modal-content button {
+            padding: 10px 20px;
+            background-color: #16a085;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .close-btn {
+            position: absolute;
+            top: 20px; right: 50px;
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            font-size: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .muted { opacity: 0.8; font-size: 14px; color: #133; text-align:center; margin-top: 6px; }
+    </style>
+</head>
+<body>
+    <h1>Get Song Recommendations</h1>
+
+    <div id="searchContainer">
+        <input type="text" id="songInput" list="songList" placeholder="Enter song name">
+        <datalist id="songList"></datalist>
+        <button onclick="getRecommendations()">Recommend</button>
+        <div id="status" class="muted"></div>
+    </div>
+
+    <div id="listOfSongs"></div>
+
+    <div id="songModal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <img id="modalImg" src="" alt="Album Cover">
+            <h2 id="modalTitle"></h2>
+            <p id="modalArtist"></p>
+            <div id="spotifyPlayer"></div>
+        </div>
+    </div>
+
+    <div id="mood">
+        <h1>Mood</h1>
+        <div data-name="Sad">Sad</div>
+        <div data-name="Low">Low</div>
+        <div data-name="Party">Party</div>
+        <div data-name="Balanced/LightPositive">Romantic</div>
+        <div data-name="Energetic">Energetic</div>
+    </div>
+
+    <script>
+<!--        //access Token -->
+        const token = "BQCVf83hNvcPAt-KLiBeGrYawTwYJm8_SBl601SwsI5rpiq0ereW2HLVppFRw6WD-zqN6wXmP_wpKh5qmWhYrUGgjWbJeLDJ5ULlfxrF96vIQqbJhftDH0bF9fCeLSkwJ5vJpD1WjGkzCBJ9JXVZRHmaQS1Xq5BStUB2X2kjZsGcEWHMaQkZyxKjp0cvOua2p3AhCdCS-b7XLKlwBZKdRJM6E3bZaoSVYFU3v_TITn9jGjGPL9gNVjlZIYNvyJtfH_K-5-padqpHZNjdgfA40jjILey75RN9fA4PPhrSPK3PlHVYlfEWbOLyU1jCU7Kb";
+
+        function setStatus(msg) {
+            document.getElementById("status").textContent = msg || "";
+        }
+
+        async function loadSongs() {
+            const res = await fetch("/songs");
+            const data = await res.json();
+            const songList = document.getElementById("songList");
+            songList.innerHTML = "";
+            data.songs.forEach(song => {
+                const option = document.createElement("option");
+                option.value = song;
+                songList.appendChild(option);
+            });
+        }
+
+        function showModal(title, artist, imgUrl, trackId) {
+            document.getElementById("modalTitle").textContent = title;
+            document.getElementById("modalArtist").textContent = artist;
+            document.getElementById("modalImg").src = imgUrl;
+            document.getElementById("spotifyPlayer").innerHTML = `
+                <iframe src="https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0"
+                    width="100%" height="80" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy">
+                </iframe>
+            `;
+            document.getElementById("songModal").style.display = "flex";
+        }
+
+        function closeModal() {
+            document.getElementById("songModal").style.display = "none";
+        }
+
+        async function renderRecommendations(endpoint, payload) {
+            setStatus("Loading…");
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                setStatus("Error: " + res.status + " " + res.statusText);
+                return;
+            }
+
+            const data = await res.json();
+            const list = document.getElementById("listOfSongs");
+            list.innerHTML = "";
+
+            if (!data.recommendations || data.recommendations.length === 0) {
+                setStatus("No results found.");
+                return;
+            }
+
+            for (const rec of data.recommendations) {
+                const trackData = await fetch(`https://api.spotify.com/v1/tracks/${rec.track_id}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                }).then(r => r.json());
+
+                const card = document.createElement("div");
+                card.classList.add("song-card");
+
+                const imgUrl = trackData?.album?.images?.[0]?.url || "https://via.placeholder.com/240x200";
+                const img = document.createElement("img");
+                img.src = imgUrl;
+
+                const title = document.createElement("h3");
+                const songName = trackData?.name || rec.track_name || "Unknown Title";
+                title.textContent = songName;
+
+                const artist = document.createElement("p");
+                const artistName = (trackData?.artists || []).map(a => a.name).join(", ") || "Unknown Artist";
+                artist.textContent = artistName;
+
+                card.addEventListener("click", () => {
+                    showModal(songName, artistName, imgUrl, rec.track_id);
+                });
+
+                card.appendChild(img);
+                card.appendChild(title);
+                card.appendChild(artist);
+                list.appendChild(card);
+            }
+            setStatus("");
+        }
+
+        function getRecommendations() {
+            const song = document.getElementById("songInput").value.trim();
+            if (!song) { setStatus("Type a song name first."); return; }
+            renderRecommendations("/recommend", { song });
+        }
+
+        // --- Throttled Mood click handlers ---
+        let moodClickTimeout;
+        document.querySelectorAll("#mood div").forEach(div => {
+            div.addEventListener("click", () => {
+                clearTimeout(moodClickTimeout);
+                moodClickTimeout = setTimeout(() => {
+                    const mood = (div.getAttribute("data-name") || div.textContent).trim();
+                    renderRecommendations("/recommend_by_mood", { mood });
+                }, 400);
+            });
+        });
+
+        loadSongs();
+    </script>
+</body>
+</html>
